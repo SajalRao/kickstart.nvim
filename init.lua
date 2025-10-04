@@ -59,7 +59,6 @@ Kickstart Guide:
   Next, run AND READ `:help`.
     This will open up a help window with some basic information
     about reading, navigating and searching the builtin help documentation.
-
     This should be the first place you go to look when you're stuck or confused
     with something. It's one of my favorite Neovim features.
 
@@ -91,7 +90,7 @@ vim.g.mapleader = ' '
 vim.g.maplocalleader = ' '
 
 -- Set to true if you have a Nerd Font installed and selected in the terminal
-vim.g.have_nerd_font = false
+vim.g.have_nerd_font = true
 
 -- [[ Setting options ]]
 -- See `:help vim.o`
@@ -102,7 +101,24 @@ vim.g.have_nerd_font = false
 vim.o.number = true
 -- You can also add relative line numbers, to help with jumping.
 --  Experiment for yourself to see if you like it!
--- vim.o.relativenumber = true
+-- "ME" I turned on relative number
+vim.o.relativenumber = true
+
+-- "PRIME" Making tab to 4 spaces
+vim.opt.tabstop = 4
+vim.opt.softtabstop = 4
+vim.opt.shiftwidth = 4
+vim.opt.expandtab = true
+
+-- "PRIME" Making incremental search
+vim.opt.hlsearch = false
+vim.opt.incsearch = true
+
+-- "PRIME" Changing the is_file_name(isfname)
+vim.opt.isfname:append '@-@'
+
+-- "PRIME" color column
+vim.opt.colorcolumn = '80'
 
 -- Enable mouse mode, can be useful for resizing splits for example!
 vim.o.mouse = 'a'
@@ -185,10 +201,10 @@ vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Open diagn
 vim.keymap.set('t', '<Esc><Esc>', '<C-\\><C-n>', { desc = 'Exit terminal mode' })
 
 -- TIP: Disable arrow keys in normal mode
--- vim.keymap.set('n', '<left>', '<cmd>echo "Use h to move!!"<CR>')
--- vim.keymap.set('n', '<right>', '<cmd>echo "Use l to move!!"<CR>')
--- vim.keymap.set('n', '<up>', '<cmd>echo "Use k to move!!"<CR>')
--- vim.keymap.set('n', '<down>', '<cmd>echo "Use j to move!!"<CR>')
+vim.keymap.set('n', '<left>', '<cmd>echo "Use h to move!!"<CR>')
+vim.keymap.set('n', '<right>', '<cmd>echo "Use l to move!!"<CR>')
+vim.keymap.set('n', '<up>', '<cmd>echo "Use k to move!!"<CR>')
+vim.keymap.set('n', '<down>', '<cmd>echo "Use j to move!!"<CR>')
 
 -- Keybinds to make split navigation easier.
 --  Use CTRL+<hjkl> to switch between windows
@@ -204,6 +220,39 @@ vim.keymap.set('n', '<C-k>', '<C-w><C-k>', { desc = 'Move focus to the upper win
 -- vim.keymap.set("n", "<C-S-l>", "<C-w>L", { desc = "Move window to the right" })
 -- vim.keymap.set("n", "<C-S-j>", "<C-w>J", { desc = "Move window to the lower" })
 -- vim.keymap.set("n", "<C-S-k>", "<C-w>K", { desc = "Move window to the upper" })
+
+-- "PRIME" To move the selected items in the visual mode
+vim.keymap.set('v', 'J', ":m '>+1<CR>gv=gv")
+vim.keymap.set('v', 'K', ":m '<-2<CR>gv=gv")
+
+-- "PRIME" Keeping the cursor at the same place while using J
+vim.keymap.set('n', 'J', 'mzJ`z')
+
+-- "PRIME" Keeping the cursor in the same place while using <C-d> and <C-u>
+vim.keymap.set('n', '<C-d>', '<C-d>zz')
+vim.keymap.set('n', '<C-u>', '<C-u>zz')
+
+-- "PRIME" Keeping the cursor in the same place while using `n` and `N` while searching
+vim.keymap.set('n', 'n', 'nzzzv')
+vim.keymap.set('n', 'N', 'Nzzzv')
+
+-- "PRIME" Using <leader>p for pasting while deleting something but still preserving the intial content
+vim.keymap.set('x', '<leader>p', '"_dP')
+
+-- "PRIME" Setting <leader>y to copy into system clipboard
+vim.keymap.set('n', '<leader>y', '"+y')
+vim.keymap.set('v', '<leader>y', '"+y')
+vim.keymap.set('n', '<leader>Y', '"+Y')
+
+-- "Prime" Setting <leader>d to delete and copy to null register
+vim.keymap.set('n', '<leader>d', '"_d')
+vim.keymap.set('v', '<leader>d', '"_d')
+
+-- "PRIME" Shortcut to the search and replace command
+vim.keymap.set('n', '<leader>S', ':%s/\\<<C-r><C-w>\\>/<C-r><C-w>/gI<Left><Left><Left>')
+
+-- "PRIME" Setting <leader>x to make the current buffer an executable
+vim.keymap.set('n', '<leader>x', '<cmd>!chmod +x %<CR>', { silent = true })
 
 -- [[ Basic Autocommands ]]
 --  See `:help lua-guide-autocommands`
@@ -683,6 +732,17 @@ require('lazy').setup({
         -- But for many setups, the LSP (`ts_ls`) will work just fine
         -- ts_ls = {},
         --
+        pyright = {
+          settings = {
+            python = {
+              analysis = {
+                autoSearchPaths = true,
+                useLibraryCodeForTypes = true,
+                diagnosticMode = 'workspace',
+              },
+            },
+          },
+        },
 
         lua_ls = {
           -- cmd = { ... },
@@ -716,11 +776,13 @@ require('lazy').setup({
       local ensure_installed = vim.tbl_keys(servers or {})
       vim.list_extend(ensure_installed, {
         'stylua', -- Used to format Lua code
+        'black',
+        'ruff',
       })
       require('mason-tool-installer').setup { ensure_installed = ensure_installed }
 
       require('mason-lspconfig').setup {
-        ensure_installed = {}, -- explicitly set to an empty table (Kickstart populates installs via mason-tool-installer)
+        ensure_installed = vim.tbl_keys(servers), -- explicitly set to an empty table (Kickstart populates installs via mason-tool-installer)
         automatic_installation = false,
         handlers = {
           function(server_name)
@@ -752,22 +814,25 @@ require('lazy').setup({
     },
     opts = {
       notify_on_error = false,
-      format_on_save = function(bufnr)
-        -- Disable "format_on_save lsp_fallback" for languages that don't
-        -- have a well standardized coding style. You can add additional
-        -- languages here or re-enable it for the disabled ones.
-        local disable_filetypes = { c = true, cpp = true }
-        if disable_filetypes[vim.bo[bufnr].filetype] then
-          return nil
-        else
-          return {
-            timeout_ms = 500,
-            lsp_format = 'fallback',
-          }
-        end
-      end,
+      -- Disable "format_on_save lsp_fallback" for languages that don't
+      -- have a well standardized coding style. You can add additional
+      -- languages here or re-enable it for the disabled ones.
+
+      -- "ME" I commented the option format_on_save.
+      --format_on_save = function(bufnr)
+        --local disable_filetypes = { c = true, cpp = true }
+          --if disable_filetypes[vim.bo[bufnr].filetype] then
+            --return nil
+          --else
+            --return {
+              --timeout_ms = 500,
+              --lsp_format = 'fallback',
+              --}
+          --end
+      --end,
       formatters_by_ft = {
         lua = { 'stylua' },
+        python = { 'ruff_format' },
         -- Conform can also run multiple formatters sequentially
         -- python = { "isort", "black" },
         --
@@ -894,7 +959,7 @@ require('lazy').setup({
       -- Load the colorscheme here.
       -- Like many other themes, this one has different styles, and you could load
       -- any other, such as 'tokyonight-storm', 'tokyonight-moon', or 'tokyonight-day'.
-      vim.cmd.colorscheme 'tokyonight-night'
+      vim.cmd.colorscheme 'default'
     end,
   },
 
@@ -944,7 +1009,7 @@ require('lazy').setup({
     main = 'nvim-treesitter.configs', -- Sets main module to use for opts
     -- [[ Configure Treesitter ]] See `:help nvim-treesitter`
     opts = {
-      ensure_installed = { 'bash', 'c', 'diff', 'html', 'lua', 'luadoc', 'markdown', 'markdown_inline', 'query', 'vim', 'vimdoc' },
+      ensure_installed = { 'bash', 'c', 'diff', 'html', 'lua', 'luadoc', 'markdown', 'markdown_inline', 'query', 'vim', 'vimdoc', 'python' },
       -- Autoinstall languages that are not installed
       auto_install = true,
       highlight = {
@@ -962,6 +1027,14 @@ require('lazy').setup({
     --    - Incremental selection: Included, see `:help nvim-treesitter-incremental-selection-mod`
     --    - Show your current context: https://github.com/nvim-treesitter/nvim-treesitter-context
     --    - Treesitter + textobjects: https://github.com/nvim-treesitter/nvim-treesitter-textobjects
+  },
+  {
+    'linux-cultist/venv-selector.nvim',
+    dependencies = { 'neovim/nvim-lspconfig' },
+    opts = {},
+    keys = {
+      { '<leader>vs', '<cmd>VenvSelect<cr>', desc = 'Select VirtualEnv' },
+    },
   },
 
   -- The following comments only work if you have downloaded the kickstart repo, not just copy pasted the
